@@ -1,0 +1,18 @@
+[package]
+name = "inner-vpn-node"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+wireguard-rs = "0.5.0"
+tokio = { version = "1", features = ["full"] }
+reqwest = { version = "0.11", features = ["json"] }
+if-addrs = "0.6.0"
+public-ip = "0.2.0"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+toml = "0.8.0"
+log = "0.4.0"
+env_logger = "0.10.0"
+nix = { version = "0.26", features = ["net"] }
+prometheus-client = "0.22"

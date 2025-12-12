@@ -1,0 +1,6 @@
+node_id = "inner_vpn_node_001"
+manage_server = "https://manage.example.com"
+secret_key = "YOUR_NODE_SECRET"
+wan_interfaces = ["eth0", "eth1"]
+wg_private_key = "YOUR_WG_PRIVATE_KEY"
+wg_listen_port = 51820
