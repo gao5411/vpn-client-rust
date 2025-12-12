@@ -1,35 +1,43 @@
 <script setup lang="ts">
 import { ref } from "vue";
 import { invoke } from "@tauri-apps/api/core";
+import { useI18n } from 'vue-i18n';
+
+const { t, locale } = useI18n();
 
 const userId = ref("");
 const password = ref("");
-const status = ref("Disconnected");
+const status = ref("disconnected");
 const logs = ref<string[]>([]);
 const isConnecting = ref(false);
 
-const addLog = (msg: string) => {
+const toggleLocale = () => {
+  locale.value = locale.value === 'zh' ? 'en' : 'zh';
+};
+
+const addLog = (msgKey: string, params: Record<string, any> = {}) => {
   const time = new Date().toLocaleTimeString();
+  const msg = t(msgKey, params);
   logs.value.unshift(`[${time}] ${msg}`);
 };
 
 async function startVPN() {
   if (!userId.value || !password.value) {
-    addLog("Error: Please enter User ID and Password");
+    addLog("errors.missingCredentials");
     return;
   }
 
   isConnecting.value = true;
-  addLog("Starting VPN connection...");
+  addLog("logs.starting");
 
   try {
     // 1. Generate Keys (or load)
-    addLog("Checking WireGuard keys...");
+    addLog("logs.checkingKeys");
     const [privKey, pubKey] = await invoke<[string, string]>("generate_keys");
-    addLog(`Keys generated. Public Key: ${pubKey.substring(0, 10)}...`);
+    addLog("logs.keysGenerated", { key: pubKey.substring(0, 10) });
 
     // 2. Authenticate
-    addLog("Authenticating...");
+    addLog("logs.authenticating");
     // Mock device code
     const deviceCode = "DEV-" + Math.random().toString(36).substring(7).toUpperCase();
     
@@ -39,17 +47,20 @@ async function startVPN() {
       deviceCode: deviceCode,
       wgPublicKey: pubKey
     });
-    addLog("Authentication successful. Token obtained.");
+    addLog("logs.authSuccess");
 
     // 3. Connect
-    addLog("Initiating connection sequence...");
+    addLog("logs.initiating");
     const res = await invoke<string>("start_connection", { token });
-    status.value = res;
-    addLog(`Success: ${res}`);
+    status.value = "connected"; // Simplified for i18n demo
+    addLog("logs.success", { msg: res });
 
   } catch (error) {
-    status.value = "Connection Failed";
-    addLog(`Error: ${error}`);
+    status.value = "failed";
+    addLog("errors.connectionFailed");
+    // Also log raw error for debug
+    const time = new Date().toLocaleTimeString();
+    logs.value.unshift(`[${time}] RAW ERROR: ${error}`);
   } finally {
     isConnecting.value = false;
   }
@@ -58,29 +69,34 @@ async function startVPN() {
 
 <template>
   <main class="container">
-    <h1>Internal Network VPN</h1>
-
-    <div class="login-box">
-      <div class="input-group">
-        <label>User ID</label>
-        <input v-model="userId" placeholder="Enter User ID" :disabled="isConnecting" />
-      </div>
-      <div class="input-group">
-        <label>Password</label>
-        <input v-model="password" type="password" placeholder="Enter Password" :disabled="isConnecting" />
-      </div>
-      
-      <button @click="startVPN" :disabled="isConnecting">
-        {{ isConnecting ? 'Connecting...' : 'Connect VPN' }}
+    <div class="header">
+      <h1>{{ t('title') }}</h1>
+      <button class="lang-btn" @click="toggleLocale">
+        {{ locale === 'zh' ? 'English' : '中文' }}
       </button>
     </div>
 
-    <div class="status-box" :class="{ connected: status.includes('Connected'), error: status.includes('Failed') }">
-      <h3>Status: {{ status }}</h3>
+    <div class="login-box">
+      <div class="input-group">
+        <label>{{ t('userId') }}</label>
+        <input v-model="userId" :placeholder="t('enterUserId')" :disabled="isConnecting" />
+      </div>
+      <div class="input-group">
+        <label>{{ t('password') }}</label>
+        <input v-model="password" type="password" :placeholder="t('enterPassword')" :disabled="isConnecting" />
+      </div>
+      
+      <button class="connect-btn" @click="startVPN" :disabled="isConnecting">
+        {{ isConnecting ? t('connecting') : t('connect') }}
+      </button>
+    </div>
+
+    <div class="status-box" :class="status">
+      <h3>{{ t('status') }}: {{ t(status) }}</h3>
     </div>
 
     <div class="logs-box">
-      <h4>Activity Log</h4>
+      <h4>{{ t('activityLog') }}</h4>
       <div class="logs">
         <div v-for="(log, index) in logs" :key="index" class="log-entry">{{ log }}</div>
       </div>
@@ -94,6 +110,26 @@ async function startVPN() {
   margin: 0 auto;
   padding: 2rem;
   font-family: 'Segoe UI', sans-serif;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2rem;
+}
+
+h1 {
+  margin: 0;
+  font-size: 1.5rem;
+}
+
+.lang-btn {
+  padding: 0.4rem 0.8rem;
+  font-size: 0.9rem;
+  background: transparent;
+  border: 1px solid #ccc;
+  color: inherit;
 }
 
 .login-box {
@@ -124,7 +160,7 @@ input {
   border-radius: 4px;
 }
 
-button {
+.connect-btn {
   padding: 1rem;
   background-color: #007bff;
   color: white;
@@ -135,11 +171,11 @@ button {
   transition: background 0.3s;
 }
 
-button:hover:not(:disabled) {
+.connect-btn:hover:not(:disabled) {
   background-color: #0056b3;
 }
 
-button:disabled {
+.connect-btn:disabled {
   background-color: #ccc;
   cursor: not-allowed;
 }
@@ -157,7 +193,7 @@ button:disabled {
   color: #155724;
 }
 
-.status-box.error {
+.status-box.failed {
   background: #f8d7da;
   color: #721c24;
 }
@@ -203,6 +239,9 @@ button:disabled {
     background: #333;
   }
   .logs-box {
+    border-color: #555;
+  }
+  .lang-btn {
     border-color: #555;
   }
 }
