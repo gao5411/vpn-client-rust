@@ -19,6 +19,9 @@ jobs:
           - target: mipsel-unknown-linux-musl
             os: ubuntu-latest
             name: inner-vpn-node-linux-mips
+          - target: x86_64-pc-windows-msvc
+            os: windows-latest
+            name: inner-vpn-node-windows.exe
 
     runs-on: ${{ matrix.os }}
     steps:
@@ -30,21 +33,29 @@ jobs:
           targets: ${{ matrix.target }}
 
       - name: Install Cross (for ARM/MIPS)
-        if: matrix.target != 'x86_64-unknown-linux-gnu'
+        if: runner.os == 'Linux' && matrix.target != 'x86_64-unknown-linux-gnu' && matrix.target != 'x86_64-unknown-linux-musl'
         run: cargo install cross
 
       - name: Build
         run: |
-          if [ "${{ matrix.target }}" == "x86_64-unknown-linux-musl" ]; then
+          if [ "${{ runner.os }}" == "Windows" ]; then
+            cargo build --release --target ${{ matrix.target }}
+          elif [ "${{ matrix.target }}" == "x86_64-unknown-linux-musl" ]; then
             sudo apt-get install -y musl-tools
             cargo build --release --target ${{ matrix.target }}
           else
             cross build --release --target ${{ matrix.target }}
           fi
+        shell: bash
 
       - name: Rename Binary
         run: |
-          mv target/${{ matrix.target }}/release/inner-vpn-node ${{ matrix.name }}
+          if [ "${{ runner.os }}" == "Windows" ]; then
+            mv target/${{ matrix.target }}/release/inner-vpn-node.exe ${{ matrix.name }}
+          else
+            mv target/${{ matrix.target }}/release/inner-vpn-node ${{ matrix.name }}
+          fi
+        shell: bash
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
